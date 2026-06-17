@@ -101,3 +101,156 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Test the backend for Drzewko Randek app - a date tracking application with photo upload to Cloudinary"
+
+backend:
+  - task: "Root API endpoint"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "GET /api/ returns correct message 'Drzewko Randek API'. Endpoint working perfectly."
+
+  - task: "Get all dates endpoint"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "GET /api/dates returns list of DateState objects. Initially empty, returns [] correctly."
+
+  - task: "Get specific date endpoint"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "GET /api/dates/{date_id} returns default DateState for non-existent dates with correct structure (date_id, done=false, photos=[], updated_at). Tested with date_ids 1, 5, 42."
+
+  - task: "Update date done status"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "PATCH /api/dates/{date_id} with {done: true/false} successfully updates and persists to MongoDB. Tested toggling between true and false. Data persists correctly on subsequent GET requests."
+
+  - task: "Upload photo to Cloudinary"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "POST /api/dates/{date_id}/photos successfully uploads images to Cloudinary. Photo stored in correct folder structure 'drzewko-randek/randka-{date_id}'. Returns DateState with photo object containing public_id and secure_url (https://res.cloudinary.com/...). Tested with date_id=42 as specified."
+
+  - task: "Get date with photos"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "GET /api/dates/{date_id} after photo upload correctly returns DateState with photos array populated. Photo data persists in MongoDB with public_id, url, and uploaded_at timestamp."
+
+  - task: "Delete photo from Cloudinary"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "DELETE /api/dates/{date_id}/photos/{public_id} successfully removes photo from both Cloudinary and MongoDB. URL encoding of public_id (contains slashes) works correctly. Verified photo is removed from photos array on subsequent GET."
+
+  - task: "MongoDB integration"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "MongoDB connection and operations working correctly. Data persists across requests. CRUD operations for date_states collection functioning properly."
+
+  - task: "Cloudinary integration"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Cloudinary integration fully functional. Photos upload to correct folder structure, URLs are valid and accessible, deletion works correctly. Credentials from .env properly configured."
+
+  - task: "CORS configuration"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "CORS middleware configured with allow_origins=['*'], allow_methods=['*'], allow_headers=['*']. All API requests from external URL working without CORS issues."
+
+frontend:
+  - task: "Frontend testing"
+    implemented: false
+    working: "NA"
+    file: ""
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Frontend testing not performed as per testing agent instructions. Only backend testing was conducted."
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "All backend endpoints tested and verified"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "testing"
+    message: "Completed comprehensive backend testing for Drzewko Randek app. All 11 test cases passed successfully. Backend API is fully functional with proper Cloudinary integration, MongoDB persistence, and CORS configuration. No issues found."
