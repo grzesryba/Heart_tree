@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import axios from "axios";
-import { Heart, Check, Upload, Trash2, Loader2, CheckCircle2, Circle } from "lucide-react";
+import {
+  Heart, Check, Upload, Trash2, Loader2,
+  CheckCircle2, Circle, Settings, X, Minus, Plus,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +13,10 @@ import { DATE_IDEAS, CATEGORIES } from "../data/dateIdeas";
 import "./HeartTree.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const MIN_HEARTS = 5;
+const MAX_HEARTS = 300;
+const DEFAULT_HEARTS = 100;
+const STORAGE_KEY = "drzewko_hearts_count";
 
 /* ---------- Tree SVG (trunk + branches + swing) ---------- */
 const TreeSVG = () => (
@@ -34,10 +41,8 @@ const TreeSVG = () => (
         <stop offset="100%" stopColor="#e9b88a" stopOpacity="0" />
       </radialGradient>
     </defs>
-
     <ellipse cx="500" cy="430" rx="430" ry="320" fill="url(#canopyShadow)" />
     <ellipse cx="500" cy="1170" rx="320" ry="20" fill="url(#ground)" />
-
     <path d="M430,1150 C460,1140 470,1120 500,1115 C530,1120 540,1140 575,1150"
       stroke="url(#bark)" strokeWidth="22" strokeLinecap="round" fill="none" />
     <path d="M500,1150 C 480,1050 530,950 495,840 C 478,780 520,720 500,650"
@@ -85,51 +90,78 @@ const TreeSVG = () => (
   </svg>
 );
 
-/* ---------- heart positions ---------- */
-const HEART_POSITIONS = (() => {
+/* ---------- Heart positions — generated dynamically for any count ---------- */
+const seedRand = (i) => {
+  const x = Math.sin(i * 9301 + 49297) * 233280;
+  return x - Math.floor(x);
+};
+
+/* Cluster weights based on total hearts count.
+   We scale each cluster's count proportionally so the distribution shape stays the same. */
+const CLUSTER_TEMPLATE = [
+  { cx: 50, cy: 14, rx: 11, ry: 8, weight: 12 },
+  { cx: 42, cy: 22, rx: 11, ry: 8, weight: 10 },
+  { cx: 58, cy: 22, rx: 11, ry: 8, weight: 10 },
+  { cx: 22, cy: 30, rx: 13, ry: 10, weight: 13 },
+  { cx: 13, cy: 40, rx: 10, ry: 9, weight: 10 },
+  { cx: 30, cy: 42, rx: 10, ry: 8, weight: 9 },
+  { cx: 78, cy: 30, rx: 13, ry: 10, weight: 13 },
+  { cx: 87, cy: 40, rx: 10, ry: 9, weight: 10 },
+  { cx: 70, cy: 42, rx: 10, ry: 8, weight: 9 },
+  { cx: 40, cy: 36, rx: 9, ry: 7, weight: 8 },
+  { cx: 60, cy: 36, rx: 9, ry: 7, weight: 8 },
+  { cx: 50, cy: 46, rx: 10, ry: 6, weight: 6 },
+];
+
+const generatePositions = (count) => {
+  const totalWeight = CLUSTER_TEMPLATE.reduce((a, c) => a + c.weight, 0);
+  // hearts get bigger when there are fewer of them
+  const baseSize = count <= 20 ? 70 : count <= 50 ? 56 : count <= 120 ? 46 : 38;
+  const sizeJitter = count <= 20 ? 22 : 16;
+
+  // First pass: compute target count per cluster (proportional, rounded)
+  let allocated = 0;
+  const perCluster = CLUSTER_TEMPLATE.map((c, i) => {
+    const n = Math.floor((c.weight / totalWeight) * count);
+    allocated += n;
+    return n;
+  });
+  // distribute leftover hearts to clusters with biggest weight
+  let leftover = count - allocated;
+  const sortedIdx = CLUSTER_TEMPLATE
+    .map((c, i) => ({ i, w: c.weight }))
+    .sort((a, b) => b.w - a.w)
+    .map((x) => x.i);
+  let p = 0;
+  while (leftover > 0) {
+    perCluster[sortedIdx[p % sortedIdx.length]] += 1;
+    leftover--;
+    p++;
+  }
+
   const positions = [];
-  const clusters = [
-    { cx: 50, cy: 14, rx: 11, ry: 8, count: 12 },
-    { cx: 42, cy: 22, rx: 11, ry: 8, count: 10 },
-    { cx: 58, cy: 22, rx: 11, ry: 8, count: 10 },
-    { cx: 22, cy: 30, rx: 13, ry: 10, count: 13 },
-    { cx: 13, cy: 40, rx: 10, ry: 9, count: 10 },
-    { cx: 30, cy: 42, rx: 10, ry: 8, count: 9 },
-    { cx: 78, cy: 30, rx: 13, ry: 10, count: 13 },
-    { cx: 87, cy: 40, rx: 10, ry: 9, count: 10 },
-    { cx: 70, cy: 42, rx: 10, ry: 8, count: 9 },
-    { cx: 40, cy: 36, rx: 9, ry: 7, count: 8 },
-    { cx: 60, cy: 36, rx: 9, ry: 7, count: 8 },
-    { cx: 50, cy: 46, rx: 10, ry: 6, count: 6 },
-  ];
-  const seedRand = (i) => {
-    const x = Math.sin(i * 9301 + 49297) * 233280;
-    return x - Math.floor(x);
-  };
   let idx = 0;
-  clusters.forEach((cl) => {
-    for (let i = 0; i < cl.count; i++) {
+  CLUSTER_TEMPLATE.forEach((cl, ci) => {
+    for (let i = 0; i < perCluster[ci]; i++) {
       const a = seedRand(idx * 2 + 1) * Math.PI * 2;
       const r = Math.sqrt(seedRand(idx * 2 + 2));
       const x = cl.cx + Math.cos(a) * cl.rx * r;
       const y = cl.cy + Math.sin(a) * cl.ry * r;
-      const size = 42 + Math.floor(seedRand(idx * 2 + 3) * 18);
+      const size = baseSize + Math.floor(seedRand(idx * 2 + 3) * sizeJitter);
       const rot = (seedRand(idx * 2 + 4) - 0.5) * 50;
       positions.push({ x, y, size, rot });
       idx++;
     }
   });
-  return positions.slice(0, 100);
-})();
+  return positions;
+};
 
-/* Deterministic pick of a category for color (so colors are varied) */
+/* deterministic color cat pick */
 const pickColorCategory = (idea) => {
-  // hash by id to spread colors among the date's categories
   const seed = (idea.id * 2654435761) >>> 0;
   return idea.categories[seed % idea.categories.length];
 };
 
-/* ---------- Heart SVG ---------- */
 const HeartIcon = ({ color, size = 40, rotate = 0, done = false }) => {
   const gid = `g-${color.replace("#", "")}-${done ? "d" : "n"}`;
   return (
@@ -154,7 +186,6 @@ const HeartIcon = ({ color, size = 40, rotate = 0, done = false }) => {
   );
 };
 
-/* ---------- Petals ---------- */
 const Petals = () => {
   const petals = Array.from({ length: 18 });
   const colors = ["#f4a89a", "#e8a09a", "#f4b89a", "#e89aa9", "#ffd1c1", "#f8c3a1"];
@@ -185,17 +216,32 @@ const HeartTree = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [catFilter, setCatFilter] = useState(null);
-  const [statusFilter, setStatusFilter] = useState("all"); // 'all' | 'done' | 'notdone'
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Heart count from localStorage with default
+  const [heartCount, setHeartCount] = useState(() => {
+    try {
+      const v = parseInt(localStorage.getItem(STORAGE_KEY) || "", 10);
+      if (!isNaN(v) && v >= MIN_HEARTS && v <= MAX_HEARTS) return v;
+    } catch {}
+    return DEFAULT_HEARTS;
+  });
+
   const fileInputRef = useRef(null);
 
-  const placedHearts = useMemo(
-    () => HEART_POSITIONS.map((pos, i) => ({
-      ...pos,
-      idea: DATE_IDEAS[i % DATE_IDEAS.length],
-      colorCat: pickColorCategory(DATE_IDEAS[i % DATE_IDEAS.length]),
-    })),
-    []
-  );
+  // Build placed hearts based on current count
+  const placedHearts = useMemo(() => {
+    const positions = generatePositions(heartCount);
+    return positions.map((pos, i) => {
+      const idea = DATE_IDEAS[i % DATE_IDEAS.length];
+      return { ...pos, idea, colorCat: pickColorCategory(idea) };
+    });
+  }, [heartCount]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, String(heartCount));
+  }, [heartCount]);
 
   useEffect(() => {
     (async () => {
@@ -268,14 +314,23 @@ const HeartTree = () => {
     return true;
   };
 
+  const adjustHearts = (delta) => {
+    setHeartCount((c) => Math.min(MAX_HEARTS, Math.max(MIN_HEARTS, c + delta)));
+  };
+
   return (
     <div className="tree-page relative">
       <Petals />
 
+      {/* settings button (top left) */}
+      <button className="settings-btn" onClick={() => setSettingsOpen(true)} aria-label="Ustawienia">
+        <Settings className="w-4 h-4" />
+      </button>
+
       {/* counter */}
       <div className="counter-pill">
         <Heart className="w-4 h-4 text-[#c44141]" fill="#c44141" />
-        <span>{doneCount} / 100</span>
+        <span>{doneCount} / {heartCount}</span>
       </div>
 
       {/* tree */}
@@ -288,7 +343,7 @@ const HeartTree = () => {
             const visible = matchesFilter(h.idea);
             return (
               <div
-                key={i}
+                key={`${heartCount}-${i}`}
                 className="heart-wrap absolute"
                 style={{
                   left: `${h.x}%`,
@@ -317,7 +372,6 @@ const HeartTree = () => {
       {/* Bottom filter bar */}
       <div className="legend-bar">
         <div className="legend-inner">
-          {/* Status filters */}
           <div className="status-group">
             <button
               onClick={() => setStatusFilter("all")}
@@ -328,10 +382,9 @@ const HeartTree = () => {
             </button>
             <button
               onClick={() => setStatusFilter(statusFilter === "done" ? "all" : "done")}
-              className={`legend-pill ${statusFilter === "done" ? "active-done" : ""}`}
+              className="legend-pill"
               style={statusFilter === "done"
-                ? { background: "#2a9d8f", borderColor: "#2a9d8f", color: "white" }
-                : {}}
+                ? { background: "#2a9d8f", borderColor: "#2a9d8f", color: "white" } : {}}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               Zaliczone
@@ -347,7 +400,6 @@ const HeartTree = () => {
 
           <span className="legend-sep" aria-hidden="true" />
 
-          {/* Category filters */}
           <div className="cat-group">
             {Object.entries(CATEGORIES).map(([key, c]) => {
               const isActive = catFilter === key;
@@ -355,7 +407,7 @@ const HeartTree = () => {
                 <button
                   key={key}
                   onClick={() => setCatFilter(isActive ? null : key)}
-                  className={`legend-pill ${isActive ? "active-color" : ""}`}
+                  className="legend-pill"
                   title={c.desc}
                   style={isActive ? { background: c.color, borderColor: c.color, color: "white" } : {}}
                 >
@@ -371,7 +423,7 @@ const HeartTree = () => {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* ===== Date modal ===== */}
       <Dialog open={!!active} onOpenChange={(o) => !o && setActive(null)}>
         <DialogContent className="idea-card modal-responsive border-0">
           {active && (
@@ -467,6 +519,73 @@ const HeartTree = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== Settings modal ===== */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="idea-card modal-responsive border-0">
+          <div className="modal-body" style={{ padding: "26px 22px 22px" }}>
+            <DialogTitle className="serif modal-title text-center">Ustawienia</DialogTitle>
+            <p className="text-center text-sm text-[#4a2f23]/70 mt-1">
+              Ile serc ma mieć Wasze drzewko?
+            </p>
+
+            <div className="settings-counter">
+              <button onClick={() => adjustHearts(-10)} className="settings-step" aria-label="-10">
+                <Minus className="w-4 h-4" />
+                <span className="settings-step-num">10</span>
+              </button>
+              <button onClick={() => adjustHearts(-1)} className="settings-step" aria-label="-1">
+                <Minus className="w-4 h-4" />
+              </button>
+              <input
+                type="number"
+                min={MIN_HEARTS}
+                max={MAX_HEARTS}
+                value={heartCount}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value || "0", 10);
+                  if (!isNaN(v)) setHeartCount(Math.min(MAX_HEARTS, Math.max(MIN_HEARTS, v)));
+                }}
+                className="settings-input"
+              />
+              <button onClick={() => adjustHearts(1)} className="settings-step" aria-label="+1">
+                <Plus className="w-4 h-4" />
+              </button>
+              <button onClick={() => adjustHearts(10)} className="settings-step" aria-label="+10">
+                <Plus className="w-4 h-4" />
+                <span className="settings-step-num">10</span>
+              </button>
+            </div>
+            <p className="text-center text-xs text-[#4a2f23]/55 mt-2">
+              od {MIN_HEARTS} do {MAX_HEARTS}
+            </p>
+
+            <div className="settings-presets">
+              {[10, 25, 50, 100, 150, 200].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setHeartCount(n)}
+                  className={`legend-pill ${heartCount === n ? "active-dark" : ""}`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+
+            <p className="text-xs text-[#4a2f23]/60 mt-5 leading-relaxed text-center">
+              Mała wskazówka: przy mniejszej liczbie serca są większe i bardziej rzucają się w oczy.
+              Stan „zaliczone" i zdjęcia są zapisywane per randka, więc zmiana liczby serc nic nie traci.
+            </p>
+
+            <button
+              onClick={() => setSettingsOpen(false)}
+              className="cta-close"
+            >
+              Gotowe
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
 
