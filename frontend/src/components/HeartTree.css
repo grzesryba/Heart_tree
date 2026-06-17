@@ -77,16 +77,75 @@
 .heart-wrap:nth-child(3n+1){ animation-duration: 6.1s; animation-delay: -2.5s;}
 .heart-wrap:nth-child(3n+2){ animation-duration: 4.7s; animation-delay: -0.7s;}
 
+.petals-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
 .petal {
   position: absolute;
   top: -5vh;
   width: 14px;
   height: 14px;
   border-radius: 50% 0 50% 0;
-  opacity: 0.65;
+  opacity: 0.6;
   animation: float-petal linear infinite;
   pointer-events: none;
-  z-index: 1;
+  box-shadow: 0 1px 2px rgba(120,40,20,0.15);
+}
+
+/* ----- Bottom legend / filter bar ----- */
+.legend-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  padding: 12px 16px 16px;
+  background: linear-gradient(180deg, rgba(253,243,227,0) 0%, rgba(253,243,227,0.85) 35%, rgba(253,243,227,0.95) 100%);
+  backdrop-filter: blur(4px);
+}
+.legend-inner {
+  max-width: 980px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.legend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(255,251,244,0.85);
+  border: 1px solid rgba(74,47,35,0.18);
+  color: #4a2f23;
+  cursor: pointer;
+  transition: transform 180ms ease, background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+  box-shadow: 0 2px 8px -4px rgba(80,30,10,0.15);
+}
+.legend-pill:hover {
+  transform: translateY(-1px);
+  background: #fff7eb;
+  box-shadow: 0 6px 14px -6px rgba(80,30,10,0.25);
+}
+.legend-pill.active {
+  background: #4a2f23;
+  color: #fef3e7;
+  border-color: #4a2f23;
+}
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.7);
 }
 
 .cta-btn {

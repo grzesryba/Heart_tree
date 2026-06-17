@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import axios from "axios";
-import { Heart, Check, Upload, Trash2, X, Loader2 } from "lucide-react";
+import { Heart, Check, Upload, Trash2, Loader2, Camera } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,7 @@ import "./HeartTree.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-/* ---------- Tree SVG (trunk + branches) ---------- */
+/* ---------- Tree SVG (trunk + branches + swing) ---------- */
 const TreeSVG = () => (
   <svg
     viewBox="0 0 1000 1200"
@@ -43,14 +43,12 @@ const TreeSVG = () => (
       stroke="url(#bark)" strokeWidth="22" strokeLinecap="round" fill="none" />
 
     {/* trunk */}
-    <path
-      d="M500,1150 C 480,1050 530,950 495,840 C 478,780 520,720 500,650"
+    <path d="M500,1150 C 480,1050 530,950 495,840 C 478,780 520,720 500,650"
       stroke="url(#bark)" strokeWidth="62" strokeLinecap="round" fill="none" />
-    <path
-      d="M488,1140 C 478,1040 520,940 488,830 C 472,775 510,715 492,655"
+    <path d="M488,1140 C 478,1040 520,940 488,830 C 472,775 510,715 492,655"
       stroke="#8b5a3c" strokeWidth="8" strokeLinecap="round" fill="none" opacity="0.55" />
 
-    {/* Main branches */}
+    {/* Main branches — left */}
     <path d="M500,760 C 420,720 320,700 220,640 C 170,610 130,560 105,500"
       stroke="url(#bark)" strokeWidth="34" strokeLinecap="round" fill="none" />
     <path d="M300,700 C 250,660 220,600 170,560"
@@ -58,6 +56,7 @@ const TreeSVG = () => (
     <path d="M220,640 C 200,580 180,520 200,440"
       stroke="url(#bark)" strokeWidth="18" strokeLinecap="round" fill="none" />
 
+    {/* Main branches — right */}
     <path d="M500,760 C 580,720 680,700 780,640 C 830,610 870,560 895,500"
       stroke="url(#bark)" strokeWidth="34" strokeLinecap="round" fill="none" />
     <path d="M700,700 C 750,660 780,600 830,560"
@@ -65,6 +64,7 @@ const TreeSVG = () => (
     <path d="M780,640 C 800,580 820,520 800,440"
       stroke="url(#bark)" strokeWidth="18" strokeLinecap="round" fill="none" />
 
+    {/* Center upper branches */}
     <path d="M500,700 C 470,620 460,540 440,460 C 425,400 430,340 460,290"
       stroke="url(#bark)" strokeWidth="22" strokeLinecap="round" fill="none" />
     <path d="M500,700 C 530,620 540,540 560,460 C 575,400 570,340 540,290"
@@ -76,6 +76,14 @@ const TreeSVG = () => (
     <path d="M540,460 C 590,440 620,400 640,360" stroke="url(#bark)" strokeWidth="12" fill="none" strokeLinecap="round" />
     <path d="M440,360 C 400,330 380,290 390,250" stroke="url(#bark)" strokeWidth="10" fill="none" strokeLinecap="round" />
     <path d="M560,360 C 600,330 620,290 610,250" stroke="url(#bark)" strokeWidth="10" fill="none" strokeLinecap="round" />
+
+    {/* Swing — hangs from right main branch */}
+    <g className="swing" style={{ transformOrigin: "690px 700px" }}>
+      <line x1="650" y1="700" x2="640" y2="900" stroke="#6b4a30" strokeWidth="2.5" />
+      <line x1="730" y1="700" x2="740" y2="900" stroke="#6b4a30" strokeWidth="2.5" />
+      <rect x="620" y="900" width="140" height="14" rx="3" fill="#7a4e34" />
+      <rect x="620" y="900" width="140" height="4" rx="2" fill="#a0704d" />
+    </g>
 
     {/* grass tufts */}
     <g opacity="0.6">
@@ -93,29 +101,23 @@ const TreeSVG = () => (
 const HEART_POSITIONS = (() => {
   const positions = [];
   const clusters = [
-    // Top crown — denser
     { cx: 50, cy: 14, rx: 11, ry: 8, count: 12 },
     { cx: 42, cy: 22, rx: 11, ry: 8, count: 10 },
     { cx: 58, cy: 22, rx: 11, ry: 8, count: 10 },
-    // Left arm
     { cx: 22, cy: 30, rx: 13, ry: 10, count: 13 },
     { cx: 13, cy: 40, rx: 10, ry: 9, count: 10 },
     { cx: 30, cy: 42, rx: 10, ry: 8, count: 9 },
-    // Right arm
     { cx: 78, cy: 30, rx: 13, ry: 10, count: 13 },
     { cx: 87, cy: 40, rx: 10, ry: 9, count: 10 },
     { cx: 70, cy: 42, rx: 10, ry: 8, count: 9 },
-    // Center filler
     { cx: 40, cy: 36, rx: 9, ry: 7, count: 8 },
     { cx: 60, cy: 36, rx: 9, ry: 7, count: 8 },
     { cx: 50, cy: 46, rx: 10, ry: 6, count: 6 },
   ];
-
   const seedRand = (i) => {
     const x = Math.sin(i * 9301 + 49297) * 233280;
     return x - Math.floor(x);
   };
-
   let idx = 0;
   clusters.forEach((cl) => {
     for (let i = 0; i < cl.count; i++) {
@@ -123,7 +125,7 @@ const HEART_POSITIONS = (() => {
       const r = Math.sqrt(seedRand(idx * 2 + 2));
       const x = cl.cx + Math.cos(a) * cl.rx * r;
       const y = cl.cy + Math.sin(a) * cl.ry * r;
-      const size = 42 + Math.floor(seedRand(idx * 2 + 3) * 18); // 42-60px (much bigger)
+      const size = 42 + Math.floor(seedRand(idx * 2 + 3) * 18);
       const rot = (seedRand(idx * 2 + 4) - 0.5) * 50;
       positions.push({ x, y, size, rot });
       idx++;
@@ -154,46 +156,58 @@ const HeartIcon = ({ color, size = 40, rotate = 0, done = false }) => {
         stroke="rgba(80,30,10,0.4)"
         strokeWidth="0.6"
       />
-      <path
-        d="M8 8.5c0.8-1.4 2.2-1.9 3.2-1.2"
-        stroke="rgba(255,255,255,0.7)"
-        strokeWidth="0.9"
-        strokeLinecap="round"
-        fill="none"
-      />
+      <path d="M8 8.5c0.8-1.4 2.2-1.9 3.2-1.2"
+        stroke="rgba(255,255,255,0.7)" strokeWidth="0.9" strokeLinecap="round" fill="none" />
       {done && (
-        <path
-          d="M8 12.5 l3 3 l5-6"
-          stroke="white"
-          strokeWidth="2.2"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M8 12.5 l3 3 l5-6" stroke="white" strokeWidth="2.2"
+          fill="none" strokeLinecap="round" strokeLinejoin="round" />
       )}
     </svg>
   );
 };
 
+/* ---------- Floating petals in the background ---------- */
+const Petals = () => {
+  const petals = Array.from({ length: 18 });
+  const colors = ["#f4a89a", "#e8a09a", "#f4b89a", "#e89aa9", "#ffd1c1", "#f8c3a1"];
+  return (
+    <div className="petals-layer">
+      {petals.map((_, i) => {
+        const left = (i * 6 + 3) % 100;
+        const dur = 14 + (i % 7) * 2.4;
+        const delay = -((i * 1.9) % 14);
+        return (
+          <span
+            key={i}
+            className="petal"
+            style={{
+              left: `${left}%`,
+              animationDuration: `${dur}s`,
+              animationDelay: `${delay}s`,
+              background: colors[i % colors.length],
+              transform: `rotate(${i * 27}deg)`,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
 /* ============================================================= */
 const HeartTree = () => {
-  const [active, setActive] = useState(null); // active idea
-  const [states, setStates] = useState({});   // { [date_id]: { done, photos } }
+  const [active, setActive] = useState(null);
+  const [states, setStates] = useState({});
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [filter, setFilter] = useState(null); // currently active category filter
   const fileInputRef = useRef(null);
 
-  // Map hearts -> ideas (deterministic)
   const placedHearts = useMemo(
-    () =>
-      HEART_POSITIONS.map((pos, i) => ({
-        ...pos,
-        idea: DATE_IDEAS[i % DATE_IDEAS.length],
-      })),
+    () => HEART_POSITIONS.map((pos, i) => ({ ...pos, idea: DATE_IDEAS[i % DATE_IDEAS.length] })),
     []
   );
 
-  // Load initial states
   useEffect(() => {
     (async () => {
       try {
@@ -210,16 +224,17 @@ const HeartTree = () => {
   }, []);
 
   const activeState = active ? states[active.id] || { done: false, photos: [] } : null;
+  // primary category drives the heart color
+  const primaryCat = (idea) => CATEGORIES[idea.categories[0]];
 
   const toggleDone = async () => {
     if (!active) return;
-    const newDone = !activeState?.done;
     try {
-      const { data } = await axios.patch(`${API}/dates/${active.id}`, { done: newDone });
+      const { data } = await axios.patch(`${API}/dates/${active.id}`, {
+        done: !activeState?.done,
+      });
       setStates((s) => ({ ...s, [active.id]: data }));
-    } catch (e) {
-      console.error("Failed to update state", e);
-    }
+    } catch (e) { console.error(e); }
   };
 
   const handleFiles = async (files) => {
@@ -231,8 +246,7 @@ const HeartTree = () => {
         const fd = new FormData();
         fd.append("file", file);
         const { data } = await axios.post(
-          `${API}/dates/${active.id}/photos`,
-          fd,
+          `${API}/dates/${active.id}/photos`, fd,
           { headers: { "Content-Type": "multipart/form-data" } }
         );
         updated = data;
@@ -253,36 +267,37 @@ const HeartTree = () => {
       const encoded = encodeURIComponent(public_id);
       const { data } = await axios.delete(`${API}/dates/${active.id}/photos/${encoded}`);
       setStates((s) => ({ ...s, [active.id]: data }));
-    } catch (e) {
-      console.error("Delete failed", e);
-    }
+    } catch (e) { console.error(e); }
   };
 
   const doneCount = Object.values(states).filter((s) => s?.done).length;
 
   return (
     <div className="tree-page relative">
-      {/* tiny counter (top right) */}
-      <div className="absolute top-4 right-4 z-10 bg-white/80 backdrop-blur border border-[#e8c9a5]/70 rounded-full px-4 py-1.5 text-sm text-[#4a2f23] shadow-sm flex items-center gap-2">
+      <Petals />
+
+      {/* tiny counter */}
+      <div className="absolute top-4 right-4 z-20 bg-white/80 backdrop-blur border border-[#e8c9a5]/70 rounded-full px-4 py-1.5 text-sm text-[#4a2f23] shadow-sm flex items-center gap-2">
         <Heart className="w-4 h-4 text-[#c44141]" fill="#c44141" />
         <span>{doneCount} / 100</span>
       </div>
 
-      {/* The tree fills the viewport */}
-      <div className="w-full min-h-screen flex items-center justify-center px-2 py-6">
+      {/* tree fills the viewport */}
+      <div className="w-full min-h-screen flex items-center justify-center px-2 pt-6 pb-44">
         <div
           className="relative mx-auto"
           style={{
             aspectRatio: "1000 / 1200",
-            height: "min(96vh, 1200px)",
+            height: "min(90vh, 1200px)",
             maxWidth: "100%",
           }}
         >
           <TreeSVG />
 
           {placedHearts.map((h, i) => {
-            const cat = CATEGORIES[h.idea.category];
+            const cat = primaryCat(h.idea);
             const isDone = states[h.idea.id]?.done;
+            const matchesFilter = !filter || h.idea.categories.includes(filter);
             return (
               <div
                 key={i}
@@ -291,6 +306,10 @@ const HeartTree = () => {
                   left: `${h.x}%`,
                   top: `${h.y}%`,
                   transform: "translate(-50%, -50%)",
+                  opacity: matchesFilter ? 1 : 0.15,
+                  filter: matchesFilter ? "none" : "grayscale(0.5)",
+                  transition: "opacity 350ms ease, filter 350ms ease",
+                  pointerEvents: matchesFilter ? "auto" : "none",
                 }}
               >
                 <button
@@ -299,12 +318,7 @@ const HeartTree = () => {
                   className="heart-leaf"
                   style={{ background: "transparent", border: "none", padding: 0 }}
                 >
-                  <HeartIcon
-                    color={cat.color}
-                    size={h.size}
-                    rotate={h.rot}
-                    done={isDone}
-                  />
+                  <HeartIcon color={cat.color} size={h.size} rotate={h.rot} done={isDone} />
                 </button>
               </div>
             );
@@ -312,21 +326,49 @@ const HeartTree = () => {
         </div>
       </div>
 
-      {/* Idea modal */}
+      {/* ----- Categories legend / filters at the bottom ----- */}
+      <div className="legend-bar">
+        <div className="legend-inner">
+          <button
+            onClick={() => setFilter(null)}
+            className={`legend-pill ${filter === null ? "active" : ""}`}
+            title="Pokaż wszystkie"
+          >
+            <Heart className="w-3.5 h-3.5" fill="#4a2f23" stroke="#4a2f23" />
+            Wszystkie
+          </button>
+          {Object.entries(CATEGORIES).map(([key, c]) => {
+            const isActive = filter === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setFilter(isActive ? null : key)}
+                className={`legend-pill ${isActive ? "active" : ""}`}
+                title={c.desc}
+                style={isActive ? { background: c.color, borderColor: c.color, color: "white" } : {}}
+              >
+                <span className="legend-dot" style={{ background: c.color }} />
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ----- Modal ----- */}
       <Dialog open={!!active} onOpenChange={(o) => !o && setActive(null)}>
         <DialogContent className="idea-card max-w-lg p-0 overflow-hidden border-0">
           {active && (
             <div className="relative">
-              {/* Top */}
               <div
                 className="h-24 flex items-center justify-center relative"
                 style={{
-                  background: `linear-gradient(180deg, ${CATEGORIES[active.category].color}33 0%, transparent 100%)`,
+                  background: `linear-gradient(180deg, ${primaryCat(active).color}33 0%, transparent 100%)`,
                 }}
               >
                 <div
                   className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg"
-                  style={{ background: CATEGORIES[active.category].color }}
+                  style={{ background: primaryCat(active).color }}
                 >
                   <Heart className="w-8 h-8 text-white" fill="white" />
                 </div>
@@ -334,15 +376,21 @@ const HeartTree = () => {
 
               <div className="px-7 pb-7 pt-2">
                 <div className="text-center">
-                  <span
-                    className="inline-block text-xs font-medium px-3 py-1 rounded-full mb-2"
-                    style={{
-                      background: `${CATEGORIES[active.category].color}24`,
-                      color: CATEGORIES[active.category].color,
-                    }}
-                  >
-                    {CATEGORIES[active.category].label}
-                  </span>
+                  {/* multiple category tags */}
+                  <div className="flex justify-center flex-wrap gap-1.5 mb-2">
+                    {active.categories.map((k) => {
+                      const c = CATEGORIES[k];
+                      return (
+                        <span
+                          key={k}
+                          className="text-xs font-medium px-2.5 py-1 rounded-full"
+                          style={{ background: `${c.color}24`, color: c.color }}
+                        >
+                          {c.label}
+                        </span>
+                      );
+                    })}
+                  </div>
                   <DialogTitle className="serif text-3xl font-semibold text-[#3a2418]">
                     {active.title}
                   </DialogTitle>
@@ -351,7 +399,6 @@ const HeartTree = () => {
                   </p>
                 </div>
 
-                {/* Done checkbox */}
                 <button
                   onClick={toggleDone}
                   className={`mt-5 w-full flex items-center gap-3 rounded-xl border px-4 py-3 transition ${
@@ -374,7 +421,6 @@ const HeartTree = () => {
                   </span>
                 </button>
 
-                {/* Photo upload */}
                 <div className="mt-5">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="serif text-lg font-semibold text-[#3a2418]">
@@ -402,15 +448,9 @@ const HeartTree = () => {
                     className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#e8c9a5] hover:border-[#c44141]/60 bg-white/60 hover:bg-white text-[#4a2f23] py-4 transition disabled:opacity-60"
                   >
                     {uploading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Wgrywanie…
-                      </>
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Wgrywanie…</>
                     ) : (
-                      <>
-                        <Upload className="w-4 h-4" />
-                        Wgraj zdjęcie
-                      </>
+                      <><Upload className="w-4 h-4" /> Wgraj zdjęcie</>
                     )}
                   </button>
 
