@@ -2,21 +2,17 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import axios from "axios";
 import {
   Heart, Check, Upload, Trash2, Loader2,
-  CheckCircle2, Circle, Settings, X, Minus, Plus,
+  CheckCircle2, Circle,
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { DATE_IDEAS, CATEGORIES } from "../data/dateIdeas";
+import { CATEGORIES } from "../data/dateIdeas";
 import "./HeartTree.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const MIN_HEARTS = 5;
-const MAX_HEARTS = 300;
-const DEFAULT_HEARTS = 100;
-const STORAGE_KEY = "drzewko_hearts_count";
 
 /* ---------- Tree SVG (trunk + branches + swing) ---------- */
 const TreeSVG = () => (
@@ -211,47 +207,39 @@ const Petals = () => {
 
 /* ============================================================= */
 const HeartTree = () => {
+  const [ideas, setIdeas] = useState([]);
   const [active, setActive] = useState(null);
   const [states, setStates] = useState({});
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [catFilter, setCatFilter] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [settingsOpen, setSettingsOpen] = useState(false);
-
-  // Heart count from localStorage with default
-  const [heartCount, setHeartCount] = useState(() => {
-    try {
-      const v = parseInt(localStorage.getItem(STORAGE_KEY) || "", 10);
-      if (!isNaN(v) && v >= MIN_HEARTS && v <= MAX_HEARTS) return v;
-    } catch {}
-    return DEFAULT_HEARTS;
-  });
 
   const fileInputRef = useRef(null);
 
-  // Build placed hearts based on current count
+  // Build placed hearts based on current ideas count
   const placedHearts = useMemo(() => {
-    const positions = generatePositions(heartCount);
+    if (ideas.length === 0) return [];
+    const positions = generatePositions(ideas.length);
     return positions.map((pos, i) => {
-      const idea = DATE_IDEAS[i % DATE_IDEAS.length];
+      const idea = ideas[i];
       return { ...pos, idea, colorCat: pickColorCategory(idea) };
     });
-  }, [heartCount]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, String(heartCount));
-  }, [heartCount]);
+  }, [ideas]);
 
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await axios.get(`${API}/dates`);
+        const [ideasRes, statesRes] = await Promise.all([
+          axios.get(`${API}/ideas`),
+          axios.get(`${API}/dates`),
+        ]);
+        setIdeas(ideasRes.data);
         const map = {};
-        data.forEach((d) => { map[d.date_id] = d; });
+        statesRes.data.forEach((d) => { map[d.date_id] = d; });
         setStates(map);
       } catch (e) {
-        console.error("Failed to load states", e);
+        console.error("Failed to load", e);
       } finally {
         setLoading(false);
       }
@@ -314,23 +302,14 @@ const HeartTree = () => {
     return true;
   };
 
-  const adjustHearts = (delta) => {
-    setHeartCount((c) => Math.min(MAX_HEARTS, Math.max(MIN_HEARTS, c + delta)));
-  };
-
   return (
     <div className="tree-page relative">
       <Petals />
 
-      {/* settings button (top left) */}
-      <button className="settings-btn" onClick={() => setSettingsOpen(true)} aria-label="Ustawienia">
-        <Settings className="w-4 h-4" />
-      </button>
-
       {/* counter */}
       <div className="counter-pill">
         <Heart className="w-4 h-4 text-[#c44141]" fill="#c44141" />
-        <span>{doneCount} / {heartCount}</span>
+        <span>{doneCount} / {ideas.length}</span>
       </div>
 
       {/* tree */}
@@ -343,7 +322,7 @@ const HeartTree = () => {
             const visible = matchesFilter(h.idea);
             return (
               <div
-                key={`${heartCount}-${i}`}
+                key={`${ideas.length}-${i}`}
                 className="heart-wrap absolute"
                 style={{
                   left: `${h.x}%`,
@@ -522,72 +501,7 @@ const HeartTree = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ===== Settings modal ===== */}
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="idea-card modal-responsive border-0">
-          <div className="modal-body" style={{ padding: "26px 22px 22px" }}>
-            <DialogTitle className="serif modal-title text-center">Ustawienia</DialogTitle>
-            <p className="text-center text-sm text-[#4a2f23]/70 mt-1">
-              Ile serc ma mieć Wasze drzewko?
-            </p>
-
-            <div className="settings-counter">
-              <button onClick={() => adjustHearts(-10)} className="settings-step" aria-label="-10">
-                <Minus className="w-4 h-4" />
-                <span className="settings-step-num">10</span>
-              </button>
-              <button onClick={() => adjustHearts(-1)} className="settings-step" aria-label="-1">
-                <Minus className="w-4 h-4" />
-              </button>
-              <input
-                type="number"
-                min={MIN_HEARTS}
-                max={MAX_HEARTS}
-                value={heartCount}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value || "0", 10);
-                  if (!isNaN(v)) setHeartCount(Math.min(MAX_HEARTS, Math.max(MIN_HEARTS, v)));
-                }}
-                className="settings-input"
-              />
-              <button onClick={() => adjustHearts(1)} className="settings-step" aria-label="+1">
-                <Plus className="w-4 h-4" />
-              </button>
-              <button onClick={() => adjustHearts(10)} className="settings-step" aria-label="+10">
-                <Plus className="w-4 h-4" />
-                <span className="settings-step-num">10</span>
-              </button>
-            </div>
-            <p className="text-center text-xs text-[#4a2f23]/55 mt-2">
-              od {MIN_HEARTS} do {MAX_HEARTS}
-            </p>
-
-            <div className="settings-presets">
-              {[10, 25, 50, 100, 150, 200].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setHeartCount(n)}
-                  className={`legend-pill ${heartCount === n ? "active-dark" : ""}`}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-
-            <p className="text-xs text-[#4a2f23]/60 mt-5 leading-relaxed text-center">
-              Mała wskazówka: przy mniejszej liczbie serca są większe i bardziej rzucają się w oczy.
-              Stan „zaliczone" i zdjęcia są zapisywane per randka, więc zmiana liczby serc nic nie traci.
-            </p>
-
-            <button
-              onClick={() => setSettingsOpen(false)}
-              className="cta-close"
-            >
-              Gotowe
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* ===== Settings modal removed — ideas come from backend; manage via /admin ===== */}
 
       {loading && (
         <div className="fixed inset-0 bg-[#fdf3e3]/80 flex items-center justify-center z-50 pointer-events-none">

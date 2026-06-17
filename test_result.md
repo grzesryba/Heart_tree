@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the backend for Drzewko Randek app - a date tracking application with photo upload to Cloudinary"
+user_problem_statement: "Test the backend for Drzewko Randek app - a date tracking application with photo upload to Cloudinary and DateIdeas CRUD functionality"
 
 backend:
   - task: "Root API endpoint"
@@ -225,6 +225,66 @@ backend:
         agent: "testing"
         comment: "CORS middleware configured with allow_origins=['*'], allow_methods=['*'], allow_headers=['*']. All API requests from external URL working without CORS issues."
 
+  - task: "Get all date ideas"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "GET /api/ideas returns list of 100 seeded date ideas. Each idea has correct structure: id (int), title (str), description (str), categories (list). Endpoint working perfectly."
+
+  - task: "Get categories metadata"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "GET /api/ideas/categories returns dict with 8 category keys (dom, poza, dzien, wieczor, cieplo, zima, czas, pieniadze). Each category has label and color fields. Endpoint working perfectly."
+
+  - task: "Create date idea"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "POST /api/ideas with valid data successfully creates new idea with auto-assigned id (101). Validation working correctly: empty title returns 400, empty categories returns 400, invalid category returns 400. All error cases handled properly."
+
+  - task: "Update date idea"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "PATCH /api/ideas/{id} successfully updates title and categories. Changes persist correctly. Non-existent idea (id=99999) correctly returns 404. Endpoint working perfectly."
+
+  - task: "Delete date idea"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "DELETE /api/ideas/{id} successfully deletes idea and returns {ok: true}. Non-existent idea (id=99999) correctly returns 404. CRITICAL: Verified that deleting an idea also cleans up related date_states entry and Cloudinary photos. Cleanup working perfectly."
+
 frontend:
   - task: "Frontend testing"
     implemented: false
@@ -241,12 +301,12 @@ frontend:
 metadata:
   created_by: "testing_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: false
 
 test_plan:
   current_focus:
-    - "All backend endpoints tested and verified"
+    - "All backend endpoints tested and verified including new DateIdeas CRUD"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
@@ -254,3 +314,5 @@ test_plan:
 agent_communication:
   - agent: "testing"
     message: "Completed comprehensive backend testing for Drzewko Randek app. All 11 test cases passed successfully. Backend API is fully functional with proper Cloudinary integration, MongoDB persistence, and CORS configuration. No issues found."
+  - agent: "testing"
+    message: "Completed comprehensive testing of NEW DateIdeas CRUD endpoints. All 19 tests passed (12 new + 7 existing). Key findings: (1) GET /api/ideas returns 100 seeded ideas with correct structure, (2) GET /api/ideas/categories returns 8 category metadata keys, (3) POST /api/ideas auto-assigns id=101 and validates correctly (empty title/categories/invalid category all return 400), (4) PATCH /api/ideas/{id} updates title and categories successfully, (5) DELETE /api/ideas/{id} correctly cleans up related date_states and Cloudinary photos, (6) All existing date states + photos endpoints still working perfectly. All test photos cleaned up from Cloudinary. Backend is fully functional with no issues."
