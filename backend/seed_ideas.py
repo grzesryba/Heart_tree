@@ -249,6 +249,7 @@ SEED_IDEAS = [
     {"id": 120, "title": "Pudełko z powodów, dla których Cię kocham", "description": "Każde z Was pisze na karteczkach 10 powodów i wkłada do pudełka. Czytacie w święta.", "categories": ["dom", "wieczor"]},
 ]
 
+
 # Frontend category dictionary — keep keys in sync with frontend/src/data/dateIdeas.js
 CATEGORIES = {
     "dom":       {"label": "Dom",        "color": "#e85a7d"},
